@@ -39,8 +39,33 @@ func getCommands() map[string]cliCommand {
 			the previous 20 locations. It's a way to go back.`,
 			callback: mapb,
 		},
+		"explore": {
+			name: "explore",
+			description: `See a list of all the Pokémon in a given area.`,
+			callback: explore,
+		},
 	}
 } 
+
+func explore(config *api.Config) error {
+	if len(config.Args) == 0 {
+		return fmt.Errorf("You must select a location to explore.")
+	}
+
+	fmt.Printf("Exploring %s...\n", config.Args[0])
+
+	res, err := api.ExploreLocation(config.Args[0])
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Found Pokemon:\n")
+	for _, pokemon := range(res) {
+		fmt.Printf(" - %s\n", pokemon)
+	}
+
+	return nil
+}
 
 func mapf(config *api.Config) error {
 	res, err := api.GetLocations(config.Next)

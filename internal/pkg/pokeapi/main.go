@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+
+	cache "pokedex/internal/pkg/pokecache"
 )
+
+var c = cache.NewCache(5 * time.Second)
 
 type Config struct {
 	Next *string 
 	Previous *string 
+	Args []string
 }
 
 type JsonLocations struct {
@@ -22,6 +28,15 @@ type JsonLocations struct {
 	} `json:"results"`
 }
 
+type JsonPokes struct {
+	PokemonEncounters []struct {
+		Pokemon struct {
+			Name string `json:"name"`
+			URL  string `json:"url"`
+		} `json:"pokemon"`
+	} `json:"pokemon_encounters"`
+}
+
 func GetLocations(url *string) (*JsonLocations, error) {
 	var endpoint string
 	if url == nil {
@@ -30,9 +45,15 @@ func GetLocations(url *string) (*JsonLocations, error) {
 		endpoint = *url
 	}
 
-	res, err := get(endpoint)
-	if err != nil {
-		return nil, err
+	var err error
+	res, ok := c.Get(endpoint)
+
+	if !ok {
+		res, err = get(endpoint)
+		if err != nil {
+			return nil, err
+		}
+		c.Add(endpoint, res)
 	}
 
 	jsonLocs := JsonLocations{}
@@ -40,8 +61,35 @@ func GetLocations(url *string) (*JsonLocations, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return &jsonLocs, nil
+}
+
+func ExploreLocation(loc string) ([]string, error) {
+	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/location-area/%s", loc)
+
+	var err error
+	res, ok := c.Get(endpoint)
+
+	if !ok {
+		res, err = get(endpoint)
+		if err != nil {
+			return nil, err
+		}
+		c.Add(endpoint, res)
+	}
+
+	jsonPokes := JsonPokes{}
+	err = json.Unmarshal(res, &jsonPokes)
+	if err != nil {
+		return nil, err
+	}
+
+	pokemon := []string{}
+	for _, p := range jsonPokes.PokemonEncounters {
+		pokemon = append(pokemon, p.Pokemon.Name)
+	}
+
+	return pokemon, nil
 }
 
 func get(url string) ([]byte, error) {

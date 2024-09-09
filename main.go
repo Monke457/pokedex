@@ -26,6 +26,10 @@ func main() {
 			continue
 		}
 
+		if len(words) > 1 {
+			config.Args = words[1:]
+		}
+
 		err := cmd.callback(&config)
 		if err != nil {
 			fmt.Println(err)
