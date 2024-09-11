@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 
 	api "pokedex/internal/pkg/pokeapi"
+	dex "pokedex/internal/pkg/pokedex"
 )
 
 type cliCommand struct {
@@ -12,6 +14,8 @@ type cliCommand struct {
 	description string
 	callback func(*api.Config) error
 }
+
+var pokedex = dex.New()
 
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
@@ -27,29 +31,47 @@ func getCommands() map[string]cliCommand {
 		},
 		"map": {
 			name: "map",
-			description: `Displays the names of 20 location areas 
-			in the Pokemon world. Each subsequent call to map should 
-			display the next 20 locations, and so on.`,
+			description: "Displays the names of 20 location areas " + 
+			"in the Pokemon world. Each subsequent call to map should " +
+			"display the next 20 locations, and so on.",
 			callback: mapf,
 		},
 		"mapb": {
 			name: "mapb",
-			description: `Similar to the map command, however, 
-			instead of displaying the next 20 locations, it displays 
-			the previous 20 locations. It's a way to go back.`,
+			description: "Similar to the map command, however, " +
+			"instead of displaying the next 20 locations, it displays " +
+			"the previous 20 locations. It's a way to go back.",
 			callback: mapb,
 		},
 		"explore": {
 			name: "explore",
-			description: `See a list of all the Pokémon in a given area.`,
+			description: "See a list of all the Pokémon in a given area. " +
+			"Takes the name of a location as an argument",
 			callback: explore,
+		},
+		"catch": {
+			name: "catch",
+			description: "Try to catch a pokemon. " +
+			"Takes the name of a pokemon as an argument.",
+			callback: catch,
+		},
+		"inspect": {
+			name: "inspect",
+			description: "Look up a Pokemon in your Pokedex. " +
+			"Only works with Pokemon you have already caught.",
+			callback: inspect,
+		},
+		"pokedex": {
+			name: "pokedex",
+			description: "List all the Pokemon you have recorded in your Pokedex",
+			callback: list,
 		},
 	}
 } 
 
 func explore(config *api.Config) error {
 	if len(config.Args) == 0 {
-		return fmt.Errorf("You must select a location to explore.")
+		return fmt.Errorf("You must provide a location to explore.")
 	}
 
 	fmt.Printf("Exploring %s...\n", config.Args[0])
@@ -64,6 +86,51 @@ func explore(config *api.Config) error {
 		fmt.Printf(" - %s\n", pokemon)
 	}
 
+	return nil
+}
+
+func catch(config *api.Config) error {
+	if len(config.Args) == 0 {
+		return fmt.Errorf("You must provide the name of a pokemon to catch.")
+	}
+
+	res, err := api.GetPokemon(config.Args[0])
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Throwing a Pokeball at %s...\n", config.Args[0])
+	chance := rand.Intn(80 + res.BaseExperience)
+
+	if chance < 100 {
+		pokedex.Add(*res)
+		fmt.Printf("%s was caught!\n", config.Args[0])
+		fmt.Printf("You may now inspect it with the inspect command.\n")
+	} else {
+		fmt.Printf("%s escaped!\n", config.Args[0])
+	}
+	return nil
+}
+
+func inspect(config *api.Config) error {
+	if len(config.Args) == 0 {
+		return fmt.Errorf("You must provide the name of a pokemon to inspect.")
+	}
+
+	poke, ok := pokedex.Get(config.Args[0])
+	if !ok {
+		return fmt.Errorf("You do not have an entry for %s in your Pokedex.", config.Args[0]) 
+	}
+
+	poke.Print()
+
+	return nil
+}
+
+func list(config *api.Config) error {
+	for name := range pokedex.List() {
+		fmt.Printf("  - %s\n", name)
+	}
 	return nil
 }
 

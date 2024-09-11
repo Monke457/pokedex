@@ -34,6 +34,8 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
+
+		config.Args = []string{}
 	}
 }
 

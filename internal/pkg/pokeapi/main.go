@@ -8,6 +8,7 @@ import (
 	"time"
 
 	cache "pokedex/internal/pkg/pokecache"
+	"pokedex/internal/pkg/pokedex"
 )
 
 var c = cache.NewCache(5 * time.Second)
@@ -28,7 +29,7 @@ type JsonLocations struct {
 	} `json:"results"`
 }
 
-type JsonPokes struct {
+type Encounters struct {
 	PokemonEncounters []struct {
 		Pokemon struct {
 			Name string `json:"name"`
@@ -78,18 +79,41 @@ func ExploreLocation(loc string) ([]string, error) {
 		c.Add(endpoint, res)
 	}
 
-	jsonPokes := JsonPokes{}
-	err = json.Unmarshal(res, &jsonPokes)
+	jsonEnc := Encounters{}
+	err = json.Unmarshal(res, &jsonEnc)
 	if err != nil {
 		return nil, err
 	}
 
 	pokemon := []string{}
-	for _, p := range jsonPokes.PokemonEncounters {
+	for _, p := range jsonEnc.PokemonEncounters {
 		pokemon = append(pokemon, p.Pokemon.Name)
 	}
 
 	return pokemon, nil
+}
+
+func GetPokemon(name string) (*pokedex.Pokemon, error) {
+	endpoint := fmt.Sprintf("https://pokeapi.co/api/v2/pokemon/%s", name)
+
+	var err error
+	res, ok := c.Get(endpoint)
+
+	if !ok {
+		res, err = get(endpoint)
+		if err != nil {
+			return nil, err
+		}
+		c.Add(endpoint, res)
+	}
+
+	poke := pokedex.Pokemon{}
+	err = json.Unmarshal(res, &poke)
+	if err != nil {
+		return nil, err
+	}
+
+	return &poke, nil
 }
 
 func get(url string) ([]byte, error) {
